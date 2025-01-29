@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { FileDropzone } from "@/components/FileDropzone";
 import { FormatSelector } from "@/components/FormatSelector";
-import { Download, RefreshCw, Info } from "lucide-react";
+import { Download, RefreshCw, Info, Files, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,68 +10,54 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ThemeToggle } from "@/components/ThemeToggle";
+
+interface FileWithProgress {
+  file: File;
+  progress: number;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+}
 
 const Index = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileWithProgress[]>([]);
   const [targetFormat, setTargetFormat] = useState("pdf");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [compressionLevel, setCompressionLevel] = useState([50]);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const { toast } = useToast();
+
+  const handleFileSelect = (file: File) => {
+    setSelectedFiles(prev => [...prev, { file, progress: 0, status: 'pending' }]);
+  };
 
   const handleConvert = () => {
     setIsProcessing(true);
     setProgress(0);
     
-    // Simulate conversion progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
+    // Simulate batch conversion progress
+    selectedFiles.forEach((fileData, index) => {
+      const interval = setInterval(() => {
+        setSelectedFiles(prev => prev.map((f, i) => 
+          i === index ? { ...f, progress: Math.min(f.progress + 10, 100), status: f.progress >= 90 ? 'completed' : 'processing' } : f
+        ));
+      }, 500);
 
-    console.log("Converting", selectedFile?.name, "to", targetFormat);
+      setTimeout(() => clearInterval(interval), 5000);
+    });
+
+    console.log("Converting files:", selectedFiles.map(f => f.file.name));
   };
 
-  const handleCompress = () => {
-    if (!selectedFile) {
-      toast({
-        title: "No file selected",
-        description: "Please select a file to compress",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    setProgress(0);
-    
-    // Simulate compression progress
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          toast({
-            title: "Compression complete",
-            description: `File compressed to ${compressionLevel}% of original size`,
-          });
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 500);
-
-    console.log("Compressing", selectedFile?.name, "to", compressionLevel, "% of original size");
+  const handlePreview = (file: File) => {
+    setPreviewFile(file);
   };
 
   return (
     <div className="min-h-screen w-full p-4 md:p-8 space-y-8">
+      <ThemeToggle />
+      
       {/* Hero Section */}
       <header className="text-center space-y-4 animate-fadeIn">
         <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -86,9 +72,9 @@ const Index = () => {
       <main className="max-w-3xl mx-auto space-y-8">
         <Card className="glass animate-fadeIn">
           <CardHeader>
-            <CardTitle>Convert Your File</CardTitle>
+            <CardTitle>Convert Your Files</CardTitle>
             <CardDescription>
-              Drag and drop your file or click to browse
+              Drag and drop multiple files or click to browse
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -97,11 +83,42 @@ const Index = () => {
                 <TabsTrigger value="convert">Convert</TabsTrigger>
                 <TabsTrigger value="compress">Compress</TabsTrigger>
               </TabsList>
+              
               <TabsContent value="convert" className="space-y-6">
                 <FileDropzone
-                  onFileSelect={setSelectedFile}
+                  onFileSelect={handleFileSelect}
                   className="animate-fadeIn"
                 />
+
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-4">
+                    {selectedFiles.map((fileData, index) => (
+                      <div key={index} className="flex items-center gap-4 p-4 rounded-lg border">
+                        <Files className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{fileData.file.name}</p>
+                          <Progress value={fileData.progress} className="h-2 mt-2" />
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handlePreview(fileData.file)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>File Preview</DialogTitle>
+                            </DialogHeader>
+                            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
+                              {/* Preview content would go here - implement based on file type */}
+                              <p className="text-muted-foreground">Preview for {fileData.file.name}</p>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-4 animate-fadeIn">
                   <label className="text-sm font-medium">Convert to:</label>
@@ -112,19 +129,10 @@ const Index = () => {
                   />
                 </div>
 
-                {isProcessing && (
-                  <div className="space-y-2">
-                    <Progress value={progress} className="w-full" />
-                    <p className="text-sm text-muted-foreground text-center">
-                      Converting... {progress}%
-                    </p>
-                  </div>
-                )}
-
                 <div className="flex gap-4">
                   <Button
                     onClick={handleConvert}
-                    disabled={!selectedFile || isProcessing}
+                    disabled={selectedFiles.length === 0 || isProcessing}
                     className="w-full"
                   >
                     {isProcessing ? (
@@ -135,19 +143,10 @@ const Index = () => {
                     ) : (
                       <>
                         <Download className="mr-2 h-4 w-4" />
-                        Convert Now
+                        Convert {selectedFiles.length > 1 ? 'All' : 'Now'}
                       </>
                     )}
                   </Button>
-                  {selectedFile && isProcessing && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsProcessing(false)}
-                      className="w-1/3"
-                    >
-                      Cancel
-                    </Button>
-                  )}
                 </div>
               </TabsContent>
               <TabsContent value="compress" className="space-y-6">
