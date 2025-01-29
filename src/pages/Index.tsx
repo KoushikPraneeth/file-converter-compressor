@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileDropzone } from "@/components/FileDropzone";
 import { FormatSelector } from "@/components/FormatSelector";
 import { Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
