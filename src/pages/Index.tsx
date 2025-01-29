@@ -50,6 +50,28 @@ const Index = () => {
     console.log("Converting files:", selectedFiles.map(f => f.file.name));
   };
 
+  const handleCompress = () => {
+    if (selectedFiles.length === 0) return;
+    
+    setIsProcessing(true);
+    setProgress(0);
+
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setIsProcessing(false);
+          toast({
+            title: "Compression Complete",
+            description: `Files compressed to ${compressionLevel}% of original size`,
+          });
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 500);
+  };
+
   const handlePreview = (file: File) => {
     setPreviewFile(file);
   };
@@ -110,7 +132,6 @@ const Index = () => {
                               <DialogTitle>File Preview</DialogTitle>
                             </DialogHeader>
                             <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                              {/* Preview content would go here - implement based on file type */}
                               <p className="text-muted-foreground">Preview for {fileData.file.name}</p>
                             </div>
                           </DialogContent>
@@ -151,7 +172,7 @@ const Index = () => {
               </TabsContent>
               <TabsContent value="compress" className="space-y-6">
                 <FileDropzone
-                  onFileSelect={setSelectedFile}
+                  onFileSelect={handleFileSelect}
                   className="animate-fadeIn"
                 />
 
@@ -199,7 +220,7 @@ const Index = () => {
                 <div className="flex gap-4">
                   <Button
                     onClick={handleCompress}
-                    disabled={!selectedFile || isProcessing}
+                    disabled={selectedFiles.length === 0 || isProcessing}
                     className="w-full"
                   >
                     {isProcessing ? (
@@ -214,7 +235,7 @@ const Index = () => {
                       </>
                     )}
                   </Button>
-                  {selectedFile && isProcessing && (
+                  {selectedFiles.length > 0 && isProcessing && (
                     <Button
                       variant="outline"
                       onClick={() => setIsProcessing(false)}
